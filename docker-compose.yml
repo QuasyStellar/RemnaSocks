@@ -1,0 +1,20 @@
+services:
+  orchestrator:
+    image: quasystellaris/remnasocks-orchestrator
+    container_name: orchestrator
+    restart: always
+    network_mode: host
+    environment:
+      - PANEL_URL=${PANEL_URL}
+      - PANEL_TOKEN=${PANEL_TOKEN}
+      - PANEL_COOKIE=${PANEL_COOKIE}
+      - ALLOWED_SQUAD_NAME=${ALLOWED_SQUAD_NAME}
+      - SOCKS5_LISTEN_ADDR=${SOCKS5_LISTEN_ADDR:-127.0.0.1:1080}
+      - WEBHOOK_LISTEN_ADDR=${WEBHOOK_LISTEN_ADDR:-@orchestrator-webhook}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - WEBHOOK_TIMEOUT_MS=${WEBHOOK_TIMEOUT_MS:-300}
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '10m'
+        max-file: '3'
