@@ -185,6 +185,33 @@ func (s *Server) readDestination(client net.Conn) (string, uint16, error) {
 	return destAddr, destPort, nil
 }
 
+type IdleTimeoutConn struct {
+	net.Conn
+	idleTimeout time.Duration
+}
+
+func (c *IdleTimeoutConn) Read(b []byte) (int, error) {
+	if c.idleTimeout > 0 {
+		c.Conn.SetReadDeadline(time.Now().Add(c.idleTimeout))
+	}
+	n, err := c.Conn.Read(b)
+	if c.idleTimeout > 0 {
+		c.Conn.SetReadDeadline(time.Time{})
+	}
+	return n, err
+}
+
+func (c *IdleTimeoutConn) Write(b []byte) (int, error) {
+	if c.idleTimeout > 0 {
+		c.Conn.SetWriteDeadline(time.Now().Add(c.idleTimeout))
+	}
+	n, err := c.Conn.Write(b)
+	if c.idleTimeout > 0 {
+		c.Conn.SetWriteDeadline(time.Time{})
+	}
+	return n, err
+}
+
 func (s *Server) waitWebhook(targetKey string) (string, string) {
 	entry, found := s.webhookCache.Get(targetKey)
 	if found {
@@ -199,13 +226,15 @@ func (s *Server) waitWebhook(targetKey string) (string, string) {
 
 	select {
 	case <-sig.ch:
-		if cachedEntry, foundCached := s.webhookCache.Get(targetKey); foundCached {
-			return cachedEntry.Email, cachedEntry.Country
-		}
 	case <-time.After(s.webhookTimeout):
 	}
 
 	s.pendingConns.DeleteIfMatch(targetKey, sig)
+
+	if cachedEntry, foundCached := s.webhookCache.Get(targetKey); foundCached {
+		return cachedEntry.Email, cachedEntry.Country
+	}
+
 	return "", ""
 }
 
@@ -216,18 +245,26 @@ func (s *Server) connectProxy(proxy *ProxyParams, destAddr string, destPort uint
 }
 
 func (s *Server) relay(client, upstream net.Conn) {
+	timeout := s.idleTimeout
+	if timeout == 0 {
+		timeout = 300 * time.Second
+	}
+
+	clientWrapped := &IdleTimeoutConn{Conn: client, idleTimeout: timeout}
+	upstreamWrapped := &IdleTimeoutConn{Conn: upstream, idleTimeout: timeout}
+
 	var wg sync.WaitGroup
 	wg.Add(2)
 
 	go func() {
 		defer wg.Done()
-		io.Copy(upstream, client)
+		io.Copy(upstreamWrapped, clientWrapped)
 		upstream.Close()
 	}()
 
 	go func() {
 		defer wg.Done()
-		io.Copy(client, upstream)
+		io.Copy(clientWrapped, upstreamWrapped)
 		client.Close()
 	}()
 

@@ -75,6 +75,7 @@ type Server struct {
 	webhookTimeout    time.Duration
 	authTTL           time.Duration
 	unauthTTL         time.Duration
+	idleTimeout       time.Duration
 }
 
 func NewServer() *Server {
@@ -82,6 +83,7 @@ func NewServer() *Server {
 	authTTLSec := getEnvIntOrDefault("AUTH_CACHE_TTL_SEC", 60)
 	unauthTTLSec := getEnvIntOrDefault("AUTH_BLOCKED_CACHE_TTL_SEC", 30)
 	webhookTimeoutMs := getEnvIntOrDefault("WEBHOOK_TIMEOUT_MS", 300)
+	idleTimeoutSec := getEnvIntOrDefault("CONNECTION_IDLE_TIMEOUT_SEC", 300)
 
 	httpClient := &http.Client{
 		Timeout: 5 * time.Second,
@@ -102,6 +104,7 @@ func NewServer() *Server {
 		webhookTimeout:    time.Duration(webhookTimeoutMs) * time.Millisecond,
 		authTTL:           time.Duration(authTTLSec) * time.Second,
 		unauthTTL:         time.Duration(unauthTTLSec) * time.Second,
+		idleTimeout:       time.Duration(idleTimeoutSec) * time.Second,
 	}
 }
 

@@ -50,6 +50,12 @@ func (c *WebhookCache) Get(key string) (CacheEntry, bool) {
 	return item, ok
 }
 
+func (c *WebhookCache) Delete(key string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	delete(c.items, key)
+}
+
 func (c *WebhookCache) cleanupWorker() {
 	for {
 		time.Sleep(1 * time.Second)
